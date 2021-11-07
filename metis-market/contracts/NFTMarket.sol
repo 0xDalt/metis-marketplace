@@ -13,7 +13,7 @@ contract NFTMarket is ReentrancyGuard {
   Counters.Counter private _itemIds;
   Counters.Counter private _itemsSold;
 
-   address payable owner;
+  address payable owner;
   uint256 listingPrice = 0.0025 ether;
 
   constructor() {
@@ -30,7 +30,7 @@ contract NFTMarket is ReentrancyGuard {
     bool sold;
   }
 
-  mapping(uint256 => marketitem) private idToMarketItem;
+  mapping(uint256 => MarketItem) private idToMarketItem;
 
   
   event MarketItemCreated (
@@ -62,6 +62,7 @@ contract NFTMarket is ReentrancyGuard {
     
     _itemIds.increment();
     uint256 itemId = _itemIds.current();
+    marketItems.push(itemId);
   
     idToMarketItem[itemId] =  MarketItem(
       itemId,
@@ -73,35 +74,107 @@ contract NFTMarket is ReentrancyGuard {
       false
     );
   
+    //transfer the ownership of the nft to the contract itself, contract will transfer to next buyer
+    IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
+    
+    emit MarketItemCreated(
+      itemId,
+      nftContract,
+      tokenId,
+      msg.sender,
+      address(0),
+      price,
+      false
+    );
   }
+
  /* Creates the sale of a marketplace item */
   /* Transfers ownership of the item, as well as funds between parties */
-  function createMarketSale(
+ function createMarketSale(
     address nftContract,
     uint256 itemId
     ) public payable nonReentrant {
+
     uint price = idToMarketItem[itemId].price;
     uint tokenId = idToMarketItem[itemId].tokenId;
     require(msg.value == price, "Please submit the asking price in order to complete the purchase");
-
-    
+//transfer eth to seller
     idToMarketItem[itemId].seller.transfer(msg.value);
+    //transfer nft to buyer
     IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
+    //updates local mapping
     idToMarketItem[itemId].owner = payable(msg.sender);
     idToMarketItem[itemId].sold = true;
     _itemsSold.increment();
     payable(owner).transfer(listingPrice);
   }
 
-/* Returns all unsold market items */
+  /* Returns all unsold market items */
   function fetchMarketItems() public view returns (MarketItem[] memory) {
     uint itemCount = _itemIds.current();
     uint unsoldItemCount = _itemIds.current() - _itemsSold.current();
     uint currentIndex = 0;
 
+    MarketItem[] memory items = new MarketItem[](unsoldItemCount);
+    for (uint i = 0; i < itemCount; i++) {
+      if (idToMarketItem[i + 1].owner == address(0)) {
+        uint currentId = i + 1;
+        MarketItem storage currentItem = idToMarketItem[currentId];
+        items[currentIndex] = currentItem;
+        currentIndex ++;
+      }
+    }
+    return items;
+  }
 
   /* Returns only items that a user has purchased */
+  function fetchMyNFTs() public view returns (MarketItem[] memory) {
+    uint totalItemCount = _itemIds.current();
+    uint itemCount = 0;
+    uint currentIndex = 0;
+
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (idToMarketItem[i + 1].owner == msg.sender) {
+        itemCount ++;
+      }
+    }
+
+    MarketItem[] memory items = new MarketItem[](itemCount);
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (idToMarketItem[i + 1].owner == msg.sender) {
+        uint currentId = i + 1;
+        MarketItem storage currentItem = idToMarketItem[currentId];
+        items[currentIndex] = currentItem;
+        currentIndex ++;
+      }
+    }
+    return items;
+  }
+
   /* Returns only items a user has created */
+  function fetchItemsCreated() public view returns (MarketItem[] memory) {
+    uint totalItemCount = _itemIds.current();
+    uint itemCount = 0;
+    uint currentIndex = 0;
+
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (idToMarketItem[i + 1].seller == msg.sender) {
+        itemCount ++;
+      }
+    }
+
+    MarketItem[] memory items = new MarketItem[](itemCount);
+    for (uint i = 0; i < totalItemCount; i++) {
+      if (idToMarketItem[i + 1].seller == msg.sender) {
+        uint currentId = i + 1;
+        MarketItem storage currentItem = idToMarketItem[currentId];
+        items[currentIndex] = currentItem;
+        currentIndex ++;
+      }
+    }
+    return items;
+  }
+}
+
   /* Returns only items that have been recently added(maybe within week) */
-    /* Returns only items that have been recently added(maybe within week) */
 }
