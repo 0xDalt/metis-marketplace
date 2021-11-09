@@ -6,6 +6,7 @@ const projectId = "b89dc3dd8a544a14a462a1e8f388344e"
 require("@nomiclabs/hardhat-waffle");
 
 module.exports = {
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       chainId: 1337
@@ -15,5 +16,15 @@ module.exports = {
       accounts: [privateKey]
     },
   },
-  solidity: "0.8.4",
+  
+  solidity: {
+    version: '0.8.4',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: 'istanbul',
+    },
+  },
 };
